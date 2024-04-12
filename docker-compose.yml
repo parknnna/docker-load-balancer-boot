@@ -1,0 +1,56 @@
+version: "3"
+services:
+  db: # db 서비스
+    container_name: h2 # 컨테이너 이름
+    image: oscarfonts/h2:latest # h2 이미지
+    ports: # 포트포워딩
+      - 1521:1521 # TCP 포트 : 데이터베이스 연결 포트
+      - 8083:81 # HTTP 포트 : 웹콘솔 연결 포트
+    environment: #h2 설정
+      H2_OPTIONS: -ifNotExists # DB가 이미 존재하면 재생성 X
+    volumes:
+      - ./h2/:/opt/h2-data # host 서버와 연결되는 통로 ( 저장 및 백업 경로 )
+    #restart: always # 컨테이너 종료시 자동 재실행
+
+  apache:
+    hostname: apache-web
+    container_name: apache-web
+    build:
+      context: .
+      dockerfile: ./loadbalance/Dockerfile
+    stdin_open: true
+    tty: true
+    #extra_hosts:
+    #  - "host.docker.internal:host-gateway"
+    ports:
+      - 8080:80
+
+  was1: # app 서비스
+    build:
+      context: ./app # Dockerfile 위치
+      dockerfile: Dockerfile # Docker 파일 이름
+    container_name: spring-was1 # 컨테이너 이름
+    ports: # 포트포워딩
+      - 8081:8080 # HTTP 포트 연결
+    environment: # spring app 설정
+      SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2:1521/demo # h2 db url
+      SPRING_DATASOURCE_USERNAME: sa # h2 db id
+      SPRING_DATASOURCE_PASSWORD: # h2 db password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create # DDL 자동 생성
+    depends_on: # app 서비스 시작 전 실행되어야 하는 서비스
+      - db
+
+  was2: # app 서비스
+    build:
+      context: ./app # Dockerfile 위치
+      dockerfile: Dockerfile # Docker 파일 이름
+    container_name: spring-was2 # 컨테이너 이름
+    ports: # 포트포워딩
+      - 8082:8080 # HTTP 포트 연결
+    environment: # spring app 설정
+      SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2:1521/demo # h2 db url
+      SPRING_DATASOURCE_USERNAME: sa # h2 db id
+      SPRING_DATASOURCE_PASSWORD: # h2 db password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create # DDL 자동 생성
+    depends_on: # app 서비스 시작 전 실행되어야 하는 서비스
+      - db
